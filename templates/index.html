@@ -1,0 +1,1335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InsightBoard Analytics</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/date-fns/1.30.1/date_fns.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .app-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            width: 280px;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-right: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            padding: 2rem 0;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar.collapsed {
+            width: 80px;
+        }
+
+        .logo {
+            text-align: center;
+            padding: 0 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .logo h1 {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 1.8rem;
+            font-weight: 700;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar.collapsed .logo h1 {
+            font-size: 1.2rem;
+        }
+
+        .user-info {
+            padding: 0 2rem;
+            margin-bottom: 2rem;
+            text-align: center;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+            padding-bottom: 1rem;
+        }
+
+        .user-avatar {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 50%;
+            margin: 0 auto 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 1.2rem;
+        }
+
+        .user-role {
+            background: #e8f2ff;
+            color: #2c5aa0;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            display: inline-block;
+            margin-top: 0.5rem;
+        }
+
+        .nav-menu {
+            list-style: none;
+        }
+
+        .nav-item {
+            margin-bottom: 0.5rem;
+        }
+
+        .nav-link {
+            display: flex;
+            align-items: center;
+            padding: 1rem 2rem;
+            text-decoration: none;
+            color: #555;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .nav-link:hover, .nav-link.active {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            transform: translateX(5px);
+        }
+
+        .nav-link::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            height: 100%;
+            width: 4px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            transform: scaleY(0);
+            transition: transform 0.3s ease;
+        }
+
+        .nav-link.active::before {
+            transform: scaleY(1);
+        }
+
+        .nav-icon {
+            margin-right: 1rem;
+            font-size: 1.2rem;
+        }
+
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 1.5rem 2rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header-title {
+            font-size: 2rem;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .header-controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: #555;
+        }
+
+        select, input {
+            padding: 0.5rem 1rem;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            background: white;
+            font-size: 0.9rem;
+            transition: all 0.3s ease;
+        }
+
+        select:focus, input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .toggle-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .widget {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .widget::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+
+        .widget:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(31, 38, 135, 0.5);
+        }
+
+        .widget-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .widget-title {
+            font-size: 1.3rem;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .widget-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .widget-change {
+            font-size: 0.9rem;
+            font-weight: 500;
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+        }
+
+        .positive {
+            color: #10b981;
+            background: #d1fae5;
+        }
+
+        .negative {
+            color: #ef4444;
+            background: #fee2e2;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-top: 1rem;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .data-table th {
+            background: #f8fafc;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .data-table tr:hover {
+            background: #f8fafc;
+        }
+
+        .competitor-badge {
+            padding: 0.3rem 0.8rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .competitor-1 { background: #fef3c7; color: #92400e; }
+        .competitor-2 { background: #ddd6fe; color: #6b21a8; }
+        .competitor-3 { background: #fecaca; color: #991b1b; }
+
+        .alert-panel {
+            background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 15px;
+            margin-bottom: 2rem;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+
+        .collaboration-panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-radius: 20px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.37);
+            margin-top: 2rem;
+        }
+
+        .team-members {
+            display: flex;
+            gap: 1rem;
+            flex-wrap: wrap;
+            margin-top: 1rem;
+        }
+
+        .team-member {
+            display: flex;
+            align-items: center;
+            background: #f8fafc;
+            padding: 0.8rem 1.2rem;
+            border-radius: 25px;
+            gap: 0.8rem;
+        }
+
+        .member-avatar {
+            width: 30px;
+            height: 30px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid rgba(102, 126, 234, 0.3);
+            border-radius: 50%;
+            border-top-color: #667eea;
+            animation: spin 1s ease-in-out infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: -280px;
+                z-index: 1000;
+                height: 100vh;
+            }
+
+            .sidebar.active {
+                left: 0;
+            }
+
+            .main-content {
+                margin-left: 0;
+                padding: 1rem;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 1rem;
+                align-items: stretch;
+            }
+
+            .header-controls {
+                justify-content: space-between;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <nav class="sidebar" id="sidebar">
+            <div class="logo">
+                <h1>InsightBoard</h1>
+            </div>
+
+            <div class="user-info">
+                <div class="user-avatar">JD</div>
+                <div>
+                    <strong>John Doe</strong>
+                    <div class="user-role" id="userRole">Admin</div>
+                </div>
+            </div>
+
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="#" class="nav-link active" data-view="overview">
+                        <span class="nav-icon">📊</span>
+                        <span>Overview</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-view="sales">
+                        <span class="nav-icon">💰</span>
+                        <span>Sales Analytics</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-view="marketing">
+                        <span class="nav-icon">📈</span>
+                        <span>Marketing</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-view="operations">
+                        <span class="nav-icon">⚙️</span>
+                        <span>Operations</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link" data-view="competitors">
+                        <span class="nav-icon">🎯</span>
+                        <span>Competitors</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <main class="main-content">
+            <header class="header">
+                <h1 class="header-title" id="viewTitle">Overview Dashboard</h1>
+                <div class="header-controls">
+                    <div class="control-group">
+                        <label for="dateRange">Period:</label>
+                        <select id="dateRange">
+                            <option value="7">Last 7 days</option>
+                            <option value="30" selected>Last 30 days</option>
+                            <option value="90">Last 90 days</option>
+                            <option value="365">Last year</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="roleSelector">Role:</label>
+                        <select id="roleSelector">
+                            <option value="admin">Admin</option>
+                            <option value="manager">Manager</option>
+                            <option value="analyst">Analyst</option>
+                            <option value="viewer">Viewer</option>
+                        </select>
+                    </div>
+                    <button class="toggle-btn" onclick="toggleRealTime()">
+                        <span id="realTimeStatus">▶ Real-time: OFF</span>
+                    </button>
+                </div>
+            </header>
+
+            <div id="alertPanel" class="alert-panel hidden">
+                <h3>🚨 Alert: Competitor Analysis</h3>
+                <p>Competitor ABC Corp shows 15% market share increase. Review recommended actions in competitor dashboard.</p>
+            </div>
+
+            <div id="dashboardContent">
+                <!-- Content will be dynamically loaded here -->
+            </div>
+
+            <div class="collaboration-panel">
+                <h3>Team Collaboration</h3>
+                <div class="team-members">
+                    <div class="team-member">
+                        <div class="member-avatar">JD</div>
+                        <span>John Doe (You)</span>
+                    </div>
+                    <div class="team-member">
+                        <div class="member-avatar">SM</div>
+                        <span>Sarah Miller</span>
+                    </div>
+                    <div class="team-member">
+                        <div class="member-avatar">RJ</div>
+                        <span>Robert Jones</span>
+                    </div>
+                    <div class="team-member">
+                        <div class="member-avatar">AL</div>
+                        <span>Amanda Lee</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Global variables
+        let currentView = 'overview';
+        let currentRole = 'admin';
+        let realTimeMode = false;
+        let updateInterval = null;
+        let charts = {};
+
+        // Mock data generator
+        function generateMockData(days = 30) {
+            const data = [];
+            const now = new Date();
+            
+            for (let i = days - 1; i >= 0; i--) {
+                const date = new Date(now - i * 24 * 60 * 60 * 1000);
+                data.push({
+                    date: date.toISOString().split('T')[0],
+                    sales: Math.floor(Math.random() * 10000) + 5000,
+                    leads: Math.floor(Math.random() * 50) + 20,
+                    conversion: Math.random() * 10 + 15,
+                    traffic: Math.floor(Math.random() * 1000) + 500,
+                    operations: Math.floor(Math.random() * 100) + 80,
+                    competitor1: Math.floor(Math.random() * 8000) + 4000,
+                    competitor2: Math.floor(Math.random() * 6000) + 3000,
+                    competitor3: Math.floor(Math.random() * 7000) + 3500
+                });
+            }
+            return data;
+        }
+
+        // Role-based access control
+        const rolePermissions = {
+            admin: ['overview', 'sales', 'marketing', 'operations', 'competitors'],
+            manager: ['overview', 'sales', 'marketing', 'operations'],
+            analyst: ['overview', 'sales', 'marketing'],
+            viewer: ['overview']
+        };
+
+        function hasAccess(role, view) {
+            return rolePermissions[role] && rolePermissions[role].includes(view);
+        }
+
+        function updateRoleAccess(role) {
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                const view = link.dataset.view;
+                if (hasAccess(role, view)) {
+                    link.style.display = 'flex';
+                } else {
+                    link.style.display = 'none';
+                }
+            });
+
+            // Update user role display
+            document.getElementById('userRole').textContent = role.charAt(0).toUpperCase() + role.slice(1);
+            
+            // If current view is not accessible, switch to overview
+            if (!hasAccess(role, currentView)) {
+                switchView('overview');
+            }
+        }
+
+        // View switching
+        function switchView(view) {
+            if (!hasAccess(currentRole, view)) return;
+
+            currentView = view;
+            
+            // Update navigation
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.classList.remove('active');
+            });
+            document.querySelector(`[data-view="${view}"]`).classList.add('active');
+            
+            // Update title
+            const titles = {
+                overview: 'Overview Dashboard',
+                sales: 'Sales Analytics',
+                marketing: 'Marketing Dashboard',
+                operations: 'Operations Dashboard',
+                competitors: 'Competitor Analysis'
+            };
+            document.getElementById('viewTitle').textContent = titles[view];
+            
+            // Load view content
+            loadViewContent(view);
+        }
+
+        function loadViewContent(view) {
+            const container = document.getElementById('dashboardContent');
+            const mockData = generateMockData(parseInt(document.getElementById('dateRange').value));
+            
+            // Destroy existing charts
+            Object.values(charts).forEach(chart => chart.destroy());
+            charts = {};
+            
+            switch (view) {
+                case 'overview':
+                    container.innerHTML = createOverviewContent(mockData);
+                    break;
+                case 'sales':
+                    container.innerHTML = createSalesContent(mockData);
+                    break;
+                case 'marketing':
+                    container.innerHTML = createMarketingContent(mockData);
+                    break;
+                case 'operations':
+                    container.innerHTML = createOperationsContent(mockData);
+                    break;
+                case 'competitors':
+                    container.innerHTML = createCompetitorsContent(mockData);
+                    break;
+            }
+            
+            // Initialize charts after content is loaded
+            setTimeout(() => initializeCharts(view, mockData), 100);
+        }
+
+        function createOverviewContent(data) {
+            const totalSales = data.reduce((sum, d) => sum + d.sales, 0);
+            const avgConversion = (data.reduce((sum, d) => sum + d.conversion, 0) / data.length).toFixed(1);
+            const totalLeads = data.reduce((sum, d) => sum + d.leads, 0);
+            const totalTraffic = data.reduce((sum, d) => sum + d.traffic, 0);
+            
+            return `
+                <div class="dashboard-grid">
+                    <div class="widget">
+                        <div class="widget-header">
+                            <h3 class="widget-title">Total Sales</h3>
+                        </div>
+                        <div class="widget-value" style="color: #10b981;">$${totalSales.toLocaleString()}</div>
+                        <div class="widget-change positive">+12.5% vs last period</div>
+                    </div>
+                    
+                    <div class="widget">
+                        <div class="widget-header">
+                            <h3 class="widget-title">Conversion Rate</h3>
+                        </div>
+                        <div class="widget-value" style="color: #667eea;">${avgConversion}%</div>
+                        <div class="widget-change positive">+2.1% vs last period</div>
+                    </div>
+                    
+                    <div class="widget">
+                        <div class="widget-header">
+                            <h3 class="widget-title">Total Leads</h3>
+                        </div>
+                        <div class="widget-value" style="color: #f59e0b;">${totalLeads.toLocaleString()}</div>
+                        <div class="widget-change negative">-3.2% vs last period</div>
+                    </div>
+                    
+                    <div class="widget">
+                        <div class="widget-header">
+                            <h3 class="widget-title">Website Traffic</h3>
+                        </div>
+                        <div class="widget-value" style="color: #ef4444;">${totalTraffic.toLocaleString()}</div>
+                        <div class="widget-change positive">+8.7% vs last period</div>
+                    </div>
+                </div>
+                
+                <div class="dashboard-grid">
+                    <div class="widget">
+                        <h3 class="widget-title">Sales Trend</h3>
+                        <div class="chart-container">
+                            <canvas id="overviewChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="widget">
+                        <h3 class="widget-title">Recent Activity</h3>
+                        <table class="data-table">
+                            <tr><td>New lead from Marketing Campaign</td><td>2 min ago</td></tr>
+                            <tr><td>Sale completed: $5,200</td><td>15 min ago</td></tr>
+                            <tr><td>Campaign performance updated</td><td>1 hour ago</td></tr>
+                            <tr><td>Competitor analysis refreshed</td><td>2 hours ago</td></tr>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function createSalesContent(data) {
+            const totalSales = data.reduce((sum, d) => sum + d.sales, 0);
+            const avgDailySales = totalSales / data.length;
+            const maxSales = Math.max(...data.map(d => d.sales));
+            const topPerformer = data.find(d => d.sales === maxSales);
+            
+            return `
+                <div class="dashboard-grid">
+                    <div class="widget">
+                        <h3 class="widget-title">Total Revenue</h3>
+                        <div class="widget-value" style="color: #10b981;">$${totalSales.toLocaleString()}</div>
+                        <div class="widget-change positive">+18.3% MoM Growth</div>
+                    </div>
+                    
+                    <div class="widget">
+                        <h3 class="widget-title">Average Daily Sales</h3>
+                        <div class="widget-value" style="color: #667eea;">$${Math.round(avgDailySales).toLocaleString()}</div>
+                        <div class="widget-change positive">+5.7% vs target</div>
+                    </div>
+                    
+                    <div class="widget">
+                        <h3 class="widget-title">Best Sales Day</h3>
+                        <div class="widget-value" style="color: #f59e0b;">$${maxSales.toLocaleString()}</div>
+                        <div class="widget-change positive">${topPerformer.date}</div>
+                    </div>
+                    
+                    <div class="widget">
+                        <h3 class="widget-title">Conversion Rate</h3>
+                        <div class="widget-value" style="color: #ef4444;">${(data.reduce((sum, d) => sum + d.conversion, 0) / data.length).toFixed(1)}%</div>
+                        <div class="widget-change positive">Above industry avg</div>
+                    </div>
+                </div>
+                
+                <div class="dashboard-grid">
+                    <div class="widget">
+                        <h3 class="widget-title">Sales Performance</h3>
+                        <div class="chart-container">
+                            <canvas id="salesChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="widget">
+                        <h3 class="widget-title">Sales by Region</h3>
+                        <div class="chart-container">
+                            <canvas id="salesRegionChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function createMarketingContent(data) {
+            const totalLeads = data.reduce((sum, d) => sum + d.leads, 0);
+            const totalTraffic = data.reduce((sum, d) => sum + d.traffic, 0);
+            const avgConversion = (data.reduce((sum, d) => sum + d.conversion, 0) / data.length).toFixed(1);
+            
+            return `
+                <div class="dashboard-grid">
+                    <div class="widget">
+                        <h3 class="widget-title">Total Leads</h3>
+                        <div class="widget-value" style="color: #10b981;">${totalLeads.toLocaleString()}</div>
+                        <div class="widget-change positive">+22.4% MoM</div>
+                    </div>
+                    
+                    <div class="widget">
+                        <h3 class="widget-title">Website Traffic</h3>
+                        <div class="widget-value" style="color: #667eea;">${totalTraffic.toLocaleString()}</div>
+                        <div class="widget-change positive">+15.8% MoM</div>
+                    </div>
+                    
+                    <div class="widget">
+                        <h3 class="widget-title">Lead Conversion</h3>
+                        <div class="widget-value" style="color: #f59e0b;">${avgConversion}%</div>
+                        <div class="widget-change negative">-1.2% MoM</div>
+                    </div>
+                    
+                    <div class="widget">
+                        <h3 class="widget-title">Cost per Lead</h3>
+                        <div class="widget-value" style="color: #ef4444;">$45.20</div>
+                        <div class="widget-change positive">-8.3% vs target</div>
+                    </div>
+                </div>
+                
+                <div class="dashboard-grid">
+                    <div class="widget">
+                        <h3 class="widget-title">Lead Generation Trend</h3>
+                        <div class="chart-container">
+                            <canvas id="marketingChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="widget">
+                        <h3 class="widget-title">Traffic Sources</h3>
+                        <div class="chart-container">
+                            <canvas id="trafficChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function createOperationsContent(data) {
+            const avgOperations = (data.reduce((sum, d) => sum + d.operations, 0) / data.length).toFixed(1);
+            
+            return `
+                <div class="dashboard-grid">
+                    <div class="widget">
+                        <h3 class="widget-title">Operational Efficiency</h3>
+                        <div class="widget-value" style="color: #10b981;">${avgOperations}%</div>
+                        <div class="widget-change positive">+3.2% vs last month</div>
+                    </div>
+                    
+                    <div class="widget">
+                        <h3 class="widget-title">System Uptime</h3>
+                        <div class="widget-value" style="color: #667eea;">99.8%</div>
+                        <div class="widget-change positive">Target achieved</div>
+                    </div>
+                    
+                    <div class="widget">
+                        <h3 class="widget-title">Processing Time</h3>
+                        <div class="widget-value" style="color: #f59e0b;">2.3s</div>
+                        <div class="widget-change positive">-0.4s improvement</div>
+                    </div>
+                    
+                    <div class="widget">
+                        <h3 class="widget-title">Error Rate</h3>
+                        <div class="widget-value" style="color: #ef4444;">0.12%</div>
+                        <div class="widget-change positive">-0.05% vs target</div>
+                    </div>
+                </div>
+                
+                <div class="dashboard-grid">
+                    <div class="widget">
+                        <h3 class="widget-title">Operations Performance</h3>
+                        <div class="chart-container">
+                            <canvas id="operationsChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="widget">
+                        <h3 class="widget-title">System Health</h3>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Service</th>
+                                    <th>Status</th>
+                                    <th>Response Time</th>
+                                    <th>Uptime</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>API Gateway</td>
+                                    <td><span style="color: #10b981;">●</span> Online</td>
+                                    <td>120ms</td>
+                                    <td>99.9%</td>
+                                </tr>
+                                <tr>
+                                    <td>Database</td>
+                                    <td><span style="color: #10b981;">●</span> Online</td>
+                                    <td>45ms</td>
+                                    <td>99.8%</td>
+                                </tr>
+                                <tr>
+                                    <td>Cache Layer</td>
+                                    <td><span style="color: #10b981;">●</span> Online</td>
+                                    <td>8ms</td>
+                                    <td>100%</td>
+                                </tr>
+                                <tr>
+                                    <td>Analytics Engine</td>
+                                    <td><span style="color: #f59e0b;">●</span> Warning</td>
+                                    <td>850ms</td>
+                                    <td>99.2%</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function createCompetitorsContent(data) {
+            return `
+                <div class="dashboard-grid">
+                    <div class="widget">
+                        <h3 class="widget-title">Market Share</h3>
+                        <div class="widget-value" style="color: #10b981;">34.2%</div>
+                        <div class="widget-change positive">+2.1% vs last quarter</div>
+                    </div>
+                    
+                    <div class="widget">
+                        <h3 class="widget-title">Competitor A Position</h3>
+                        <div class="widget-value" style="color: #ef4444;">28.5%</div>
+                        <div class="widget-change negative">+1.8% (Growing)</div>
+                    </div>
+                    
+                    <div class="widget">
+                        <h3 class="widget-title">Price Competitiveness</h3>
+                        <div class="widget-value" style="color: #667eea;">92%</div>
+                        <div class="widget-change positive">Optimal pricing</div>
+                    </div>
+                    
+                    <div class="widget">
+                        <h3 class="widget-title">Brand Sentiment</h3>
+                        <div class="widget-value" style="color: #f59e0b;">78%</div>
+                        <div class="widget-change positive">+5% vs competitors</div>
+                    </div>
+                </div>
+                
+                <div class="dashboard-grid">
+                    <div class="widget">
+                        <h3 class="widget-title">Competitive Analysis</h3>
+                        <div class="chart-container">
+                            <canvas id="competitorChart"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="widget">
+                        <h3 class="widget-title">Competitor Intelligence</h3>
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Competitor</th>
+                                    <th>Market Share</th>
+                                    <th>Recent Activity</th>
+                                    <th>Threat Level</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><span class="competitor-badge competitor-1">Competitor A</span></td>
+                                    <td>28.5%</td>
+                                    <td>New product launch</td>
+                                    <td><span style="color: #ef4444;">High</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="competitor-badge competitor-2">Competitor B</span></td>
+                                    <td>21.3%</td>
+                                    <td>Price reduction</td>
+                                    <td><span style="color: #f59e0b;">Medium</span></td>
+                                </tr>
+                                <tr>
+                                    <td><span class="competitor-badge competitor-3">Competitor C</span></td>
+                                    <td>16.0%</td>
+                                    <td>Marketing campaign</td>
+                                    <td><span style="color: #10b981;">Low</span></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+        }
+
+        function initializeCharts(view, data) {
+            Chart.defaults.font.family = "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif";
+            Chart.defaults.color = '#666';
+            
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            usePointStyle: true,
+                            padding: 20
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            color: '#f0f0f0'
+                        }
+                    },
+                    x: {
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            };
+
+            switch (view) {
+                case 'overview':
+                    const overviewCtx = document.getElementById('overviewChart');
+                    if (overviewCtx) {
+                        charts.overview = new Chart(overviewCtx, {
+                            type: 'line',
+                            data: {
+                                labels: data.map(d => new Date(d.date).toLocaleDateString()),
+                                datasets: [{
+                                    label: 'Sales',
+                                    data: data.map(d => d.sales),
+                                    borderColor: '#667eea',
+                                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                    fill: true,
+                                    tension: 0.4
+                                }]
+                            },
+                            options: {
+                                ...commonOptions,
+                                plugins: {
+                                    ...commonOptions.plugins,
+                                    title: {
+                                        display: false
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    break;
+
+                case 'sales':
+                    const salesCtx = document.getElementById('salesChart');
+                    if (salesCtx) {
+                        charts.sales = new Chart(salesCtx, {
+                            type: 'bar',
+                            data: {
+                                labels: data.slice(-7).map(d => new Date(d.date).toLocaleDateString()),
+                                datasets: [{
+                                    label: 'Daily Sales',
+                                    data: data.slice(-7).map(d => d.sales),
+                                    backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                                    borderColor: '#667eea',
+                                    borderWidth: 1
+                                }]
+                            },
+                            options: commonOptions
+                        });
+                    }
+
+                    const salesRegionCtx = document.getElementById('salesRegionChart');
+                    if (salesRegionCtx) {
+                        charts.salesRegion = new Chart(salesRegionCtx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: ['North America', 'Europe', 'Asia Pacific', 'Others'],
+                                datasets: [{
+                                    data: [45, 25, 20, 10],
+                                    backgroundColor: ['#667eea', '#764ba2', '#f093fb', '#f5576c'],
+                                    borderWidth: 0
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: {
+                                        position: 'bottom'
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    break;
+
+                case 'marketing':
+                    const marketingCtx = document.getElementById('marketingChart');
+                    if (marketingCtx) {
+                        charts.marketing = new Chart(marketingCtx, {
+                            type: 'line',
+                            data: {
+                                labels: data.map(d => new Date(d.date).toLocaleDateString()),
+                                datasets: [{
+                                    label: 'Leads',
+                                    data: data.map(d => d.leads),
+                                    borderColor: '#10b981',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                    fill: true,
+                                    tension: 0.4
+                                }, {
+                                    label: 'Traffic',
+                                    data: data.map(d => d.traffic),
+                                    borderColor: '#f59e0b',
+                                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                                    fill: true,
+                                    tension: 0.4,
+                                    yAxisID: 'y1'
+                                }]
+                            },
+                            options: {
+                                ...commonOptions,
+                                scales: {
+                                    ...commonOptions.scales,
+                                    y1: {
+                                        type: 'linear',
+                                        display: true,
+                                        position: 'right',
+                                        grid: {
+                                            drawOnChartArea: false,
+                                        },
+                                    }
+                                }
+                            }
+                        });
+                    }
+
+                    const trafficCtx = document.getElementById('trafficChart');
+                    if (trafficCtx) {
+                        charts.traffic = new Chart(trafficCtx, {
+                            type: 'pie',
+                            data: {
+                                labels: ['Organic Search', 'Social Media', 'Direct', 'Paid Ads', 'Email'],
+                                datasets: [{
+                                    data: [35, 25, 20, 15, 5],
+                                    backgroundColor: ['#667eea', '#764ba2', '#f093fb', '#f5576c', '#4facfe'],
+                                    borderWidth: 0
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                plugins: {
+                                    legend: {
+                                        position: 'bottom'
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    break;
+
+                case 'operations':
+                    const operationsCtx = document.getElementById('operationsChart');
+                    if (operationsCtx) {
+                        charts.operations = new Chart(operationsCtx, {
+                            type: 'line',
+                            data: {
+                                labels: data.map(d => new Date(d.date).toLocaleDateString()),
+                                datasets: [{
+                                    label: 'Efficiency %',
+                                    data: data.map(d => d.operations),
+                                    borderColor: '#10b981',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                    fill: true,
+                                    tension: 0.4
+                                }]
+                            },
+                            options: {
+                                ...commonOptions,
+                                scales: {
+                                    y: {
+                                        min: 70,
+                                        max: 100,
+                                        grid: {
+                                            color: '#f0f0f0'
+                                        }
+                                    },
+                                    x: {
+                                        grid: {
+                                            display: false
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                    }
+                    break;
+
+                case 'competitors':
+                    const competitorCtx = document.getElementById('competitorChart');
+                    if (competitorCtx) {
+                        charts.competitor = new Chart(competitorCtx, {
+                            type: 'line',
+                            data: {
+                                labels: data.map(d => new Date(d.date).toLocaleDateString()),
+                                datasets: [{
+                                    label: 'Our Company',
+                                    data: data.map(d => d.sales),
+                                    borderColor: '#667eea',
+                                    backgroundColor: 'rgba(102, 126, 234, 0.1)',
+                                    fill: false,
+                                    tension: 0.4
+                                }, {
+                                    label: 'Competitor A',
+                                    data: data.map(d => d.competitor1),
+                                    borderColor: '#ef4444',
+                                    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                    fill: false,
+                                    tension: 0.4
+                                }, {
+                                    label: 'Competitor B',
+                                    data: data.map(d => d.competitor2),
+                                    borderColor: '#f59e0b',
+                                    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                                    fill: false,
+                                    tension: 0.4
+                                }, {
+                                    label: 'Competitor C',
+                                    data: data.map(d => d.competitor3),
+                                    borderColor: '#10b981',
+                                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                    fill: false,
+                                    tension: 0.4
+                                }]
+                            },
+                            options: commonOptions
+                        });
+                    }
+                    break;
+            }
+        }
+
+        // Real-time updates
+        function toggleRealTime() {
+            realTimeMode = !realTimeMode;
+            const statusElement = document.getElementById('realTimeStatus');
+            
+            if (realTimeMode) {
+                statusElement.textContent = '⏸ Real-time: ON';
+                statusElement.style.background = 'linear-gradient(135deg, #10b981, #059669)';
+                startRealTimeUpdates();
+                
+                // Show alert for demo
+                setTimeout(() => {
+                    document.getElementById('alertPanel').classList.remove('hidden');
+                }, 3000);
+            } else {
+                statusElement.textContent = '▶ Real-time: OFF';
+                statusElement.style.background = 'linear-gradient(135deg, #667eea, #764ba2)';
+                stopRealTimeUpdates();
+                document.getElementById('alertPanel').classList.add('hidden');
+            }
+        }
+
+        function startRealTimeUpdates() {
+            updateInterval = setInterval(() => {
+                // Simulate real-time data updates
+                if (Object.keys(charts).length > 0) {
+                    updateChartsWithNewData();
+                }
+            }, 5000);
+        }
+
+        function stopRealTimeUpdates() {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+                updateInterval = null;
+            }
+        }
+
+        function updateChartsWithNewData() {
+            Object.keys(charts).forEach(chartKey => {
+                const chart = charts[chartKey];
+                if (chart && chart.data && chart.data.datasets) {
+                    chart.data.datasets.forEach(dataset => {
+                        if (dataset.data && dataset.data.length > 0) {
+                            // Add new data point
+                            const lastValue = dataset.data[dataset.data.length - 1];
+                            const newValue = lastValue + (Math.random() - 0.5) * lastValue * 0.1;
+                            dataset.data.push(Math.max(0, newValue));
+                            
+                            // Remove old data point if too many
+                            if (dataset.data.length > 30) {
+                                dataset.data.shift();
+                                chart.data.labels.shift();
+                            }
+                        }
+                    });
+                    
+                    // Add new label
+                    const now = new Date();
+                    chart.data.labels.push(now.toLocaleTimeString());
+                    
+                    chart.update('none');
+                }
+            });
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // Navigation
+            document.querySelectorAll('.nav-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const view = this.dataset.view;
+                    switchView(view);
+                });
+            });
+
+            // Date range change
+            document.getElementById('dateRange').addEventListener('change', function() {
+                loadViewContent(currentView);
+            });
+
+            // Role change
+            document.getElementById('roleSelector').addEventListener('change', function() {
+                currentRole = this.value;
+                updateRoleAccess(currentRole);
+            });
+
+            // Close alert
+            document.getElementById('alertPanel').addEventListener('click', function() {
+                this.classList.add('hidden');
+            });
+
+            // Initialize with overview
+            updateRoleAccess(currentRole);
+            loadViewContent('overview');
+        });
+
+        // Responsive sidebar toggle (for mobile)
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('active');
+        }
+
+        // Add mobile menu button for smaller screens
+        if (window.innerWidth <= 768) {
+            const header = document.querySelector('.header');
+            const menuButton = document.createElement('button');
+            menuButton.textContent = '☰';
+            menuButton.className = 'toggle-btn';
+            menuButton.onclick = toggleSidebar;
+            header.insertBefore(menuButton, header.firstChild);
+        }
+    </script>
+</body>
+</html>
